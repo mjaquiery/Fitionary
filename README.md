@@ -248,6 +248,7 @@ This also writes the name into `fly.toml`:
 
 ```sh
 fly launch --copy-config --no-deploy --name <your-app-name> --region lhr
+git add fly.toml && git commit -m "Set Fly.io app name"   # launch rewrites fly.toml
 ```
 
 Deploy (builds the Dockerfile on Fly's remote builder):
