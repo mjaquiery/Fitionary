@@ -230,7 +230,7 @@ image is about 160 MB, mostly the exercise images. The fetch layer stays cached 
 
 ```sh
 docker build -t fitionary .
-docker run --rm -p 8080:80 fitionary   # http://localhost:8080
+docker run --rm -p 8080:8080 fitionary   # http://localhost:8080
 
 # Without network access to GitHub: use a local clone for the images
 docker build --build-context free-exercise-db=../free-exercise-db -t fitionary .
@@ -265,10 +265,10 @@ The app is named `fitionary` in `fly.toml`. If you use a different name, change 
    fly apps create fitionary      # add --org <org> if you have more than one
    ```
 
-   Don't pass `--save`: it replaces `fly.toml` with a file containing only the app name. Don't use
-   `fly launch` or Fly's dashboard "Launch" either. Both rewrite `fly.toml` with
-   `internal_port = 8080`, but Caddy listens on 80, so every health check fails and the deploy
-   times out. `tests/deploy-config.test.ts` fails CI if the ports ever disagree.
+   Don't pass `--save`: it replaces `fly.toml` with a file containing only the app name. Avoid
+   `fly launch` and Fly's dashboard "Launch" too: they rewrite `fly.toml` and can deploy on their
+   own. Caddy listens on 8080, Fly's default `internal_port`; `tests/deploy-config.test.ts`
+   fails CI if `fly.toml`, the Caddyfile and the Dockerfile ever disagree.
 
 3. Give the app public IP addresses. flyctl normally does this on the first deploy, but only when
    the app has no machines yet:
@@ -298,8 +298,10 @@ starts on the next request: it scales to zero. The first request after a quiet s
 second or two for it to boot. If an earlier deploy left a second machine, remove it with
 `fly scale count 1 -a fitionary`.
 
-If you connected this repository in Fly's dashboard, turn off any automatic deploys there, so each
-push deploys once (through GitHub Actions).
+Make `main` the repository's default branch (GitHub → **Settings** → **General**). If you
+launched the app from Fly's dashboard, its GitHub integration opens pull requests against the
+default branch and can deploy by itself. Disconnect it in the app's settings on fly.io, so each
+push to `main` deploys exactly once, through GitHub Actions.
 
 If the secret or the app name is missing, the deploy job stops with an error saying which.
 

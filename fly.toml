@@ -1,36 +1,36 @@
-# fly.toml app configuration file generated for fitionary on 2026-10-10T12:07:35Z
+# Fly.io configuration. https://fly.io/docs/reference/configuration/
 #
-# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
-#
-
-app = 'fitionary'
-primary_region = 'lhr'
+# Deployed by .github/workflows/deploy.yml on push to main. Caddy listens on
+# 8080, Fly's default internal_port; tests/deploy-config.test.ts fails CI if
+# fly.toml, the Caddyfile and the Dockerfile ever disagree.
+app = "fitionary"
+primary_region = "lhr"
 
 [build]
-  dockerfile = 'Dockerfile'
+  dockerfile = "Dockerfile"
 
 [http_service]
-  internal_port = 80
+  internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  # Scale to zero: stop the machine when idle and start it on the next request.
+  auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
-  processes = ['app']
+  processes = ["app"]
 
   [http_service.concurrency]
-    type = 'requests'
-    hard_limit = 250
+    type = "requests"
     soft_limit = 200
+    hard_limit = 250
 
   [[http_service.checks]]
-    interval = '30s'
-    timeout = '5s'
-    grace_period = '10s'
-    method = 'GET'
-    path = '/healthz'
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
 
 [[vm]]
-  memory = '256mb'
-  cpu_kind = 'shared'
+  memory = "256mb"
+  cpu_kind = "shared"
   cpus = 1
-  memory_mb = 256

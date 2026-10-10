@@ -4,7 +4,7 @@
 	auto_https off
 }
 
-:80 {
+:8080 {
 	root * /srv
 
 	# Compresses text responses (HTML, CSS, JS, JSON, SVG); JPEGs are left alone.
