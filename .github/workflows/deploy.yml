@@ -46,7 +46,7 @@ jobs:
             echo "::error::The FLY_API_TOKEN secret is not set. See 'Continuous deployment' in README.md."
             exit 1
           fi
-          app=$(sed -n 's/^app = "\(.*\)"$/\1/p' fly.toml)
+          app=$(sed -nE "s/^app *= *['\"]([^'\"]+)['\"].*/\1/p" fly.toml)
           if [ -z "$app" ] || [ "$app" = "fitionary-change-me" ]; then
             echo "::error file=fly.toml::Set 'app' in fly.toml to the name of your Fly.io app."
             exit 1
@@ -56,8 +56,9 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1
 
       # Builds the Dockerfile on Fly's remote builder (which downloads the
-      # exercise images) and waits for the health check to pass.
-      - run: flyctl deploy --remote-only
+      # exercise images) and waits for the health check to pass. --ha=false
+      # keeps it to one machine; it still scales to zero when idle (fly.toml).
+      - run: flyctl deploy --remote-only --ha=false
 
       - name: Smoke test
         run: |

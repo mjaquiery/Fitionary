@@ -191,7 +191,7 @@ exercise of the length you asked for.
 │   ├── style.css
 │   ├── constants.ts
 │   └── types.ts
-├── tests/                    Vitest suites (normalize, fetch-data, filter, routine, …)
+├── tests/                    Vitest suites (normalize, fetch-data, filter, routine, deploy config, …)
 ├── tsconfig.json             App (browser)
 ├── tsconfig.node.json        Scripts, tests, config (Node)
 └── vite.config.ts            Vite and Vitest config
@@ -251,38 +251,55 @@ on `main`.
 
 #### One-time setup
 
+The app is named `fitionary` in `fly.toml`. If you use a different name, change it there.
+
 1. Install flyctl (`brew install flyctl`, or `curl -L https://fly.io/install.sh | sh`) and sign in:
 
    ```sh
    fly auth login
    ```
 
-2. Create the app. Names are global on Fly.io, so pick a unique one:
+2. Create the app, if it doesn't exist yet:
 
    ```sh
-   fly apps create <your-app-name>      # add --org <org> if you have more than one
+   fly apps create fitionary      # add --org <org> if you have more than one
    ```
 
-   Don't pass `--save`: it replaces `fly.toml` with a file containing only the app name.
+   Don't pass `--save`: it replaces `fly.toml` with a file containing only the app name. Don't use
+   `fly launch` or Fly's dashboard "Launch" either. Both rewrite `fly.toml` with
+   `internal_port = 8080`, but Caddy listens on 80, so every health check fails and the deploy
+   times out. `tests/deploy-config.test.ts` fails CI if the ports ever disagree.
 
-3. Put the name in `fly.toml` and commit it:
+3. Give the app public IP addresses. flyctl normally does this on the first deploy, but only when
+   the app has no machines yet:
 
-   ```toml
-   app = "<your-app-name>"
+   ```sh
+   fly ips list -a fitionary                 # nothing listed? then:
+   fly ips allocate-v6 -a fitionary
+   fly ips allocate-v4 --shared -a fitionary # free; a dedicated IPv4 costs extra
    ```
 
-4. Create a deploy token scoped to that app, and store it as a GitHub Actions secret named
+4. Create a deploy token scoped to the app, and store it as a GitHub Actions secret named
    `FLY_API_TOKEN`:
 
    ```sh
-   fly tokens create deploy -a <your-app-name> -x 8760h   # 1 year; the default is 20 years
+   fly tokens create deploy -a fitionary -x 8760h   # 1 year; the default is 20 years
    ```
 
    Paste the whole output, including the `FlyV1 ` prefix, into GitHub: repository **Settings** →
    **Secrets and variables** → **Actions** → **New repository secret**. Or use the GitHub CLI:
-   `fly tokens create deploy -a <your-app-name> -x 8760h | gh secret set FLY_API_TOKEN`.
+   `fly tokens create deploy -a fitionary -x 8760h | gh secret set FLY_API_TOKEN`.
 
-5. Push to `main`. The first deploy creates the machines in `primary_region` (`lhr`).
+5. Push to `main`.
+
+The workflow deploys with `--ha=false`, so the app runs on one machine. `fly.toml` sets
+`auto_stop_machines = "stop"` and `min_machines_running = 0`, so that machine stops when idle and
+starts on the next request: it scales to zero. The first request after a quiet spell waits a
+second or two for it to boot. If an earlier deploy left a second machine, remove it with
+`fly scale count 1 -a fitionary`.
+
+If you connected this repository in Fly's dashboard, turn off any automatic deploys there, so each
+push deploys once (through GitHub Actions).
 
 If the secret or the app name is missing, the deploy job stops with an error saying which.
 
@@ -297,9 +314,7 @@ fly status
 fly logs
 ```
 
-On a first deploy, Fly creates two machines for redundancy. For a hobby static site, one is
-enough: `fly scale count 1`. Machines stop when idle (`auto_stop_machines = "stop"`) and start
-on the next request.
+Add `--ha=false` on a first manual deploy, or Fly creates two machines.
 
 ### Updating the data later
 
