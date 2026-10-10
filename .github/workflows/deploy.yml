@@ -1,0 +1,68 @@
+name: Test and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # Typecheck + bundle. Exercise images aren't needed for this; the Fly build fetches them.
+      - run: npm run build
+
+  deploy:
+    name: Deploy to Fly.io
+    needs: test
+    # Pushes to main (and manual runs on main) only, never pull requests.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    # Queue deploys rather than running two at once or cancelling one halfway.
+    concurrency:
+      group: fly-deploy
+      cancel-in-progress: false
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check Fly.io setup
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::The FLY_API_TOKEN secret is not set. See 'Continuous deployment' in README.md."
+            exit 1
+          fi
+          app=$(sed -n 's/^app = "\(.*\)"$/\1/p' fly.toml)
+          if [ -z "$app" ] || [ "$app" = "fitionary-change-me" ]; then
+            echo "::error file=fly.toml::Set 'app' in fly.toml to the name of your Fly.io app."
+            exit 1
+          fi
+          echo "FLY_APP=$app" >> "$GITHUB_ENV"
+
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # v1
+
+      # Builds the Dockerfile on Fly's remote builder (which downloads the
+      # exercise images) and waits for the health check to pass.
+      - run: flyctl deploy --remote-only
+
+      - name: Smoke test
+        run: |
+          base="https://$FLY_APP.fly.dev"
+          for path in /healthz / /exercises/Air_Bike/0.jpg; do
+            curl -fsS -o /dev/null --retry 5 --retry-all-errors --retry-delay 3 -w "%{http_code} $path\n" "$base$path"
+          done
+          echo "Deployed to $base" >> "$GITHUB_STEP_SUMMARY"

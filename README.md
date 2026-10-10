@@ -161,6 +161,7 @@ exercise of the length you asked for.
 ├── Caddyfile                 Static server config (gzip/zstd, SPA fallback, caching)
 ├── Dockerfile                Multi-stage: Node build (fetches images) → Caddy
 ├── fly.toml                  Fly.io app config
+├── .github/workflows/        Test on PRs; test and deploy to Fly.io on push to main
 ├── LICENSES.md               Data sources, licenses and attribution
 ├── index.html                App shell (header, nav, main, footer)
 ├── public/
@@ -235,43 +236,74 @@ docker run --rm -p 8080:80 fitionary   # http://localhost:8080
 docker build --build-context free-exercise-db=../free-exercise-db -t fitionary .
 ```
 
-### Deploy
+### Continuous deployment (GitHub Actions)
 
-Install flyctl (`brew install flyctl`, or `curl -L https://fly.io/install.sh | sh`) and sign in:
+`.github/workflows/deploy.yml` runs on every pull request and every push to `main`:
 
-```sh
-fly auth login
-```
+1. **Test:** `npm ci`, `npm test`, then `npm run build` (typecheck and bundle).
+2. **Deploy** (pushes to `main` only, after tests pass): `flyctl deploy --remote-only` builds the
+   Dockerfile on Fly's builder, which downloads the exercise images, and waits for the health
+   check. A smoke test then requests `/healthz`, `/` and one image from `https://<app>.fly.dev`.
+   Deploys are queued, never run in parallel, and never cancelled halfway.
 
-Create the app from the existing `fly.toml` without deploying yet. Pick a globally unique name.
-This also writes the name into `fly.toml`:
+You can also run it by hand from the Actions tab (**Run workflow**); that only deploys when run
+on `main`.
 
-```sh
-fly launch --copy-config --no-deploy --name <your-app-name> --region lhr
-git add fly.toml && git commit -m "Set Fly.io app name"   # launch rewrites fly.toml
-```
+#### One-time setup
 
-Deploy (builds the Dockerfile on Fly's remote builder):
+1. Install flyctl (`brew install flyctl`, or `curl -L https://fly.io/install.sh | sh`) and sign in:
+
+   ```sh
+   fly auth login
+   ```
+
+2. Create the app. Names are global on Fly.io, so pick a unique one:
+
+   ```sh
+   fly apps create <your-app-name>      # add --org <org> if you have more than one
+   ```
+
+   Don't pass `--save`: it replaces `fly.toml` with a file containing only the app name.
+
+3. Put the name in `fly.toml` and commit it:
+
+   ```toml
+   app = "<your-app-name>"
+   ```
+
+4. Create a deploy token scoped to that app, and store it as a GitHub Actions secret named
+   `FLY_API_TOKEN`:
+
+   ```sh
+   fly tokens create deploy -a <your-app-name> -x 8760h   # 1 year; the default is 20 years
+   ```
+
+   Paste the whole output, including the `FlyV1 ` prefix, into GitHub: repository **Settings** →
+   **Secrets and variables** → **Actions** → **New repository secret**. Or use the GitHub CLI:
+   `fly tokens create deploy -a <your-app-name> -x 8760h | gh secret set FLY_API_TOKEN`.
+
+5. Push to `main`. The first deploy creates the machines in `primary_region` (`lhr`).
+
+If the secret or the app name is missing, the deploy job stops with an error saying which.
+
+### Manual deploy
+
+From a machine signed in with `fly auth login`:
 
 ```sh
 fly deploy
-```
-
-Then:
-
-```sh
-fly open      # open https://<your-app-name>.fly.dev
+fly open      # https://<your-app-name>.fly.dev
 fly status
 fly logs
 ```
 
 On a first deploy, Fly creates two machines for redundancy. For a hobby static site, one is
-enough: `fly deploy --ha=false` on the first deploy, or `fly scale count 1` later. Machines stop
-when idle (`auto_stop_machines = "stop"`) and start on the next request.
+enough: `fly scale count 1`. Machines stop when idle (`auto_stop_machines = "stop"`) and start
+on the next request.
 
 ### Updating the data later
 
-`npm run fetch-data -- --ref main`, review the diff, commit, then `fly deploy`. Image URLs don't
+`npm run fetch-data -- --ref main`, review the diff, commit, and push to `main`. Image URLs don't
 change between data versions, and browsers may cache them for up to a year. If upstream ever
 replaces an image file in place, returning visitors could see the old one until it expires.
 

@@ -6,3 +6,4 @@ public/exercises
 *.log
 .DS_Store
 fly.toml
+.github
