@@ -1,0 +1,35 @@
+# Fly.io configuration. https://fly.io/docs/reference/configuration/
+#
+# `app` must be globally unique on Fly.io: replace the placeholder with your own
+# name, or pass --name to `fly launch` (see README.md).
+app = "fitionary-change-me"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 80
+  force_https = true
+  # Static site: stop machines when idle and start them on the next request.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

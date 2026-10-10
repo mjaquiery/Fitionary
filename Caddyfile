@@ -1,0 +1,51 @@
+{
+	# No admin API in production, and no certificates: Fly.io terminates TLS.
+	admin off
+	auto_https off
+}
+
+:80 {
+	root * /srv
+
+	# Compresses text responses (HTML, CSS, JS, JSON, SVG); JPEGs are left alone.
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# Exercise images. They only change when the pinned data version changes.
+	# ">" defers the header to successful responses, so a 404 is never cached for a year.
+	handle /exercises/* {
+		header >Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Vite output: file names are content-hashed.
+	handle /assets/* {
+		header >Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# Everything else: SPA fallback to index.html, always revalidated so new deploys show up.
+	handle {
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	# Missing images and assets (the SPA fallback means pages never 404).
+	handle_errors {
+		header Cache-Control "no-store"
+		header -Server
+		respond "{err.status_code} {err.status_text}"
+	}
+}

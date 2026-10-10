@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Browse 800+ exercises by muscle group and equipment, and deal yourself a timed workout." />
+    <meta name="theme-color" content="#0f766e" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Fitionary: exercise library</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="site-header-inner">
+        <a class="brand" href="/">
+          <svg class="brand-mark" aria-hidden="true" viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M3 9h2V7h2v10H5v-2H3V9Zm16-2h2v2h2v6h-2v2h-2V7ZM8 11h8v2H8v-2Z"/></svg>
+          Fitionary
+        </a>
+        <nav aria-label="Main">
+          <ul class="nav-list">
+            <li><a href="/" data-nav="library">Library</a></li>
+            <li><a href="/routine" data-nav="routine">Routine<span class="nav-badge" hidden><span class="sr-only"> (workout in progress)</span></span></a></li>
+            <li><a href="/about" data-nav="about">About</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <p class="loading" role="status">Loading exercises…</p>
+      <noscript><p class="loading">Fitionary needs JavaScript to run.</p></noscript>
+    </main>
+    <footer class="site-footer">
+      <p>
+        Exercise data and images from
+        <a href="https://github.com/yuhonas/free-exercise-db">Free Exercise DB</a> (public domain).
+        Not medical advice. <a href="/about">About &amp; licenses</a>
+      </p>
+    </footer>
+    <div id="announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
