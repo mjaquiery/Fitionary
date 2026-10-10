@@ -241,7 +241,8 @@ docker build --build-context free-exercise-db=../free-exercise-db -t fitionary .
 `.github/workflows/deploy.yml` runs on every pull request and every push to `main`:
 
 1. **Test:** `npm ci`, `npm test`, then `npm run build` (typecheck and bundle).
-2. **Deploy** (pushes to `main` only, after tests pass): `flyctl deploy --remote-only` builds the
+2. **Deploy** (pushes to `main` only, after tests pass): makes sure the app has public IP
+   addresses, then `flyctl deploy --remote-only` builds the
    Dockerfile on Fly's builder, which downloads the exercise images, and waits for the health
    check. A smoke test then requests `/healthz`, `/` and one image from `https://<app>.fly.dev`.
    Deploys are queued, never run in parallel, and never cancelled halfway.
@@ -270,13 +271,13 @@ The app is named `fitionary` in `fly.toml`. If you use a different name, change 
    own. Caddy listens on 8080, Fly's default `internal_port`; `tests/deploy-config.test.ts`
    fails CI if `fly.toml`, the Caddyfile and the Dockerfile ever disagree.
 
-3. Give the app public IP addresses. flyctl normally does this on the first deploy, but only when
-   the app has no machines yet:
+3. Public IP addresses: the workflow allocates a free IPv6 and a free shared IPv4 if the app has
+   none. flyctl only does this on an app's first deploy, so it matters if that first deploy
+   failed. To do it by hand:
 
    ```sh
-   fly ips list -a fitionary                 # nothing listed? then:
    fly ips allocate-v6 -a fitionary
-   fly ips allocate-v4 --shared -a fitionary # free; a dedicated IPv4 costs extra
+   fly ips allocate-v4 --shared -a fitionary
    ```
 
 4. Create a deploy token scoped to the app, and store it as a GitHub Actions secret named
